@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -54,6 +55,17 @@ class UsuarioControllerTest {
     private static RequestPostProcessor conRol(String rol) {
         return jwt().jwt(token -> token.subject(UUID.randomUUID().toString()).claim("role", rol))
                 .authorities(new SimpleGrantedAuthority("ROLE_" + rol));
+    }
+
+    /** Sin el perfil dev, Swagger está deshabilitado: sus rutas se deniegan en lugar de terminar en un 500. */
+    @Test
+    void sinElPerfilDevLasRutasDeSwaggerDebenDenegarse() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("NO_AUTENTICADO"));
+        mockMvc.perform(get("/swagger-ui.html").with(conRol(SecurityConfig.ROL_ADMINISTRADOR)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("ACCESO_DENEGADO"));
     }
 
     @Test

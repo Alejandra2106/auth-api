@@ -1,10 +1,12 @@
 package com.crediticio.auth.config;
 
 import com.crediticio.auth.shared.util.TraceIdFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -24,7 +26,9 @@ import java.util.List;
  * públicos (los dos últimos protegidos por la cookie y la validación de Origin); el registro de
  * usuarios exige ADMINISTRADOR_RIESGO; todo lo demás se deniega. Sin sesión HTTP: cada petición se
  * autentica con su JWT. El CSRF de Spring se desactiva porque ningún endpoint protegido usa cookies
- * de autenticación; los que usan la cookie de renovación validan Origin (ValidadorOrigen).
+ * de autenticación; los que usan la cookie de renovación validan Origin (ValidadorOrigen). Swagger solo
+ * es público con springdoc habilitado (perfil dev), igual que en scoring-api y evaluation-query-api;
+ * si no, sus rutas se deniegan (antes se permitían y respondían 500 por recurso inexistente).
  */
 @Configuration
 @EnableWebSecurity
@@ -32,6 +36,10 @@ import java.util.List;
 public class SecurityConfig {
 
     public static final String ROL_ADMINISTRADOR = "ADMINISTRADOR_RIESGO";
+    private static final String[] RUTAS_SWAGGER = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
+
+    @Value("${springdoc.api-docs.enabled:false}")
+    private boolean swaggerHabilitado;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, WebProperties webProperties) throws Exception {
@@ -45,7 +53,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/usuarios").hasRole(ROL_ADMINISTRADOR)
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers(RUTAS_SWAGGER).access((autenticacion, contexto) ->
+                                new AuthorizationDecision(swaggerHabilitado))
                         .requestMatchers("/error").permitAll()
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(recursos -> recursos
