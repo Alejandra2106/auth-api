@@ -64,7 +64,9 @@ Los errores usan el formato común `{errorCode, message, details, traceId}` y to
 | Variable | Descripción |
 |---|---|
 | `AUTH_DB_URL` | `postgresql://host:puerto/base` (la misma base que las otras API) |
-| `AUTH_DB_USERNAME`, `AUTH_DB_PASSWORD` | Usuario PostgreSQL de `auth-api` (propietario del esquema `auth`) |
+| `AUTH_DB_USERNAME`, `AUTH_DB_PASSWORD` | Rol de ejecución de `auth-api` (en `motor_scoring`, `auth_api`): SELECT, INSERT y UPDATE sobre sus tablas, sin propiedad del esquema |
+| `AUTH_FLYWAY_MIGRAR_AL_ARRANCAR` | `false` por defecto: Flyway solo valida y, con migraciones pendientes, la aplicación no arranca y no aplica nada. `true` solo en un despliegue controlado (`docs/operacion/despliegue.md`) |
+| `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD` | Solo al migrar: propietario del esquema `auth` (en `motor_scoring`, `auth_migrator`) |
 | `AUTH_JWT_PRIVATE_KEY_LOCATION` | Ubicación de la clave privada PKCS#8, p. ej. `file:/secretos/jwt-privada.pem` |
 | `AUTH_JWT_PUBLIC_KEY_LOCATION` | Ubicación de la clave pública X.509 |
 | `AUTH_JWT_KEY_ID` | Identificador de la clave (`kid`), p. ej. `clave-2026-10` |
