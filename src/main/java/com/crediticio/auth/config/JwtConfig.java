@@ -23,13 +23,17 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
  * Firma RS256 con la clave privada (solo auth-api) y validación local con la clave pública: firma,
- * algoritmo permitido (solo RS256), emisor, audiencia propia y vigencia (HU09 CA05). Las claves se
- * leen de archivos PEM externos; si faltan o son inválidas, la aplicación no arranca.
+ * algoritmo permitido (solo RS256), emisor, audiencia propia y vigencia (HU09 CA05), y los claims
+ * obligatorios del contrato común (HU10, P-HU10-03): exp, sub con formato UUID y role de texto, igual
+ * que scoring-api y evaluation-query-api. Las claves se leen de archivos PEM externos; si faltan o son
+ * inválidas, la aplicación no arranca.
  */
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
@@ -55,11 +59,30 @@ public class JwtConfig {
         return decoder;
     }
 
-    /** Emisor y vigencia (con 60 s de tolerancia de reloj) y que la audiencia incluya esta API. */
+    /**
+     * Emisor y vigencia (con 60 s de tolerancia de reloj), audiencia que incluya esta API y los claims
+     * obligatorios: el validador por defecto de Spring acepta tokens sin exp, y sub y role no los comprueba.
+     */
     public static OAuth2TokenValidator<Jwt> validador(String emisor, String audiencia) {
         OAuth2TokenValidator<Jwt> audienciaValida = new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
                 audiencias -> audiencias != null && audiencias.contains(audiencia));
-        return new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(emisor), audienciaValida);
+        return new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(emisor),
+                audienciaValida,
+                new JwtClaimValidator<Instant>(JwtClaimNames.EXP, exp -> exp != null),
+                new JwtClaimValidator<String>(JwtClaimNames.SUB, JwtConfig::esUuid),
+                new JwtClaimValidator<Object>("role", rol -> rol instanceof String texto && !texto.isBlank()));
+    }
+
+    private static boolean esUuid(String valor) {
+        if (valor == null) {
+            return false;
+        }
+        try {
+            return UUID.fromString(valor).toString().equalsIgnoreCase(valor);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     private static <T> T leer(Resource recurso, Function<InputStream, T> convertidor, String tipo) {
